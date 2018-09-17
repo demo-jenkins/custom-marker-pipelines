@@ -1,24 +1,17 @@
 pipeline {
-   agent { label 'nodejs-app' }
+   agent any
    options { 
-    buildDiscarder(logRotator(numToKeepStr: '2'))
+    buildDiscarder(logRotator(numToKeepStr: '10'))
     skipDefaultCheckout true
     preserveStashes(buildCount: 2)
-  }
-  post {
-    aborted {
-      echo "Why didn't you push my button?"
-    }
-}    
+   }
    stages {
       stage('Say Hello') {
          steps {
             echo 'Hello World!'   
-            sh 'java -version'
          }
       }
-      
-  stage('Test') {
+     stage('Test') {
       agent {
         kubernetes {
           label 'nodejs-app-inline'
@@ -33,39 +26,43 @@ spec:
     command:
     - cat
     tty: true
-  - name: testcafe
+  - name: testcafe-chrome
     image: 946759952272.dkr.ecr.us-east-1.amazonaws.com/kypseli/testcafe:alpha-1
     command:
     - cat
     tty: true
+  - name: testcafe-firefox
+    image: 946759952272.dkr.ecr.us-east-1.amazonaws.com/kypseli/testcafe:alpha-1
+    command:
+    - cat
+    tty: true
+    ports:
+    - name: firefox1
+      containerPort: 1339
+    - name: firefox2
+      containerPort: 1340
           """
         }
       }
-      stages {
-        stage('Node Setup') {
-          steps {
-            checkout scm
-            container('nodejs') {
-              sh '''
-                npm install express
-                npm install pug --save
-                node ./hello.js &
-              '''
-            }
-          }
+      steps {
+        checkout scm
+        container('nodejs') {
+          sh '''
+            npm install express
+            npm install pug --save
+            node ./hello.js &
+          '''
         }
-        stage('Chrome') {
-          steps {
-            container('testcafe') {
-              sh '/opt/testcafe/docker/testcafe-docker.sh "chromium --no-sandbox" tests/*.js -r xunit:res.xml'
+        script {
+          parallel chrome: {
+            container('testcafe-chrome') {
+              sh '/opt/testcafe/docker/testcafe-docker.sh "chromium --no-sandbox" tests/*.js -r xunit:res-chrome.xml'
             }
-          }
-        }
-        stage('Firefox') {
-          steps {
-            container('testcafe') {
-              sh '/opt/testcafe/docker/testcafe-docker.sh firefox tests/*.js -r xunit:res.xml'
-            }
+          }, 
+          firefox: {
+              container('testcafe-firefox') {
+                sh '/opt/testcafe/docker/testcafe-docker.sh firefox --ports 1339,1340 tests/*.js -r xunit:res-firefox.xml'
+              }
           }
         }
       }
@@ -74,31 +71,26 @@ spec:
           stash name: 'app', includes: '*.js, public/**, views/*, Dockerfile'
         }
         always {
-          junit 'res.xml'
+          junit 'res*.xml'
         }
       }    
     }
-    
-    
-stage('Build and Push Image') {
-      agent any
-      when {
-        beforeAgent true
-        branch 'master'
+      stage('Build and Push Image') {
+         when {
+            beforeAgent true
+            branch 'master'
+         }
+         steps {
+            echo "TODO - build and push image"
+         }
       }
-      steps {
-        echo "TODO - build and push image"
-        unstash 'app'
-      }
-    }
-    
-  stage('Deploy') {
+      stage('Deploy') {
       when {
         beforeAgent true
         branch 'master'
       }
       options {
-        timeout(time: 60, unit: 'SECONDS') 
+        timeout(time: 300, unit: 'SECONDS') 
       }
       input {
         message "Should we deploy?"
@@ -106,8 +98,9 @@ stage('Build and Push Image') {
       }
       steps {
         echo "Continuing with deployment - approved by ${APPROVER}"
+        unstash 'app'
       }
     }
     
-   }
+  }
 }
