@@ -1,5 +1,5 @@
 pipeline {
-   agent any
+   agent none
    stages {
       stage('Say Hello') {
          steps {
@@ -8,6 +8,7 @@ pipeline {
          }
       }
       stage('Test') {
+      agent { label 'nodejs-app' }
         steps {
           container('nodejs') {
             echo 'Hello World!'   
@@ -15,5 +16,15 @@ pipeline {
           }
         }
       }
+       stage('Build and Push Image') {
+      when {
+        beforeAgent true
+        branch 'master'
+      }
+      steps {
+        echo "TODO - build and push image"
+        sh 'java -version'
+      }
+    }
    }
 }
