@@ -2,6 +2,7 @@ pipeline {
    agent { label 'nodejs-app' }
    options { 
     buildDiscarder(logRotator(numToKeepStr: '2'))
+    skipDefaultCheckout true
   }
   post {
     aborted {
@@ -16,20 +17,34 @@ pipeline {
          }
       }
       
- 
+stage('Test') {
+      agent { label 'nodejs-app' }
+      steps {
+        checkout scm
+        container('nodejs') {
+          echo 'Hello World!'   
+          sh 'node --version'
+        }
+      }
+      post {
+        success {
+          stash name: 'app', includes: '*.js, public/**, views/*, Dockerfile'
+        }
+      }
+    } 
       
 stage('Build and Push Image') {
- agent { label 'nodejs-app' }
+      agent any
       when {
         beforeAgent true
         branch 'master'
       }
- steps {
+      steps {
         echo "TODO - build and push image"
-        sh 'java -version'
+        unstash 'app'
       }
- }
- 
+    }
+    
   stage('Deploy') {
       when {
         beforeAgent true
