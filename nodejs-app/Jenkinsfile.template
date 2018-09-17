@@ -16,7 +16,8 @@ pipeline {
             sh 'node --version'
           }
         }
-      }
+     }
+      
 stage('Build and Push Image') {
  agent { label 'nodejs-app' }
       when {
@@ -28,5 +29,18 @@ stage('Build and Push Image') {
         sh 'java -version'
       }
  }
+ stage('Deploy') {
+      when {
+        beforeAgent true
+        branch 'master'
+      }
+      input {
+        message "Should we continue?"
+      }
+      steps {
+        echo "Continuing with deployment"
+      }
+    }
+    
    }
 }
