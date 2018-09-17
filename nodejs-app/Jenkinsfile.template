@@ -18,6 +18,7 @@ pipeline {
         }
       }
 stage('Build and Push Image') {
+ agent { label 'nodejs-app' }
       when {
         beforeAgent true
         branch 'master'
