@@ -7,7 +7,8 @@ pipeline {
             sh 'java -version'
          }
       }
-      stage('Test') {
+      
+  stage('Test') {
       agent { label 'nodejs-app' }
         steps {
         sh 'java -version'
@@ -29,10 +30,14 @@ stage('Build and Push Image') {
         sh 'java -version'
       }
  }
+ 
  stage('Deploy') {
       when {
         beforeAgent true
         branch 'master'
+      }
+      options {
+        timeout(time: 30, unit: 'SECONDS') 
       }
       input {
         message "Should we continue?"
